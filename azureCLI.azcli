@@ -1,0 +1,61 @@
+
+az login 
+
+az upgrade
+
+az account set --subscription "Subscription-2"
+
+az extension add --name containerapp --upgrade
+
+RESOURCE_GROUP="album-containerapps"
+LOCATION="centralus"
+ENVIRONMENT="env-album-containerapps"
+API_NAME="album-api"
+FRONTEND_NAME="album-ui"
+GITHUB_USERNAME="hectormeneses333"
+
+ACR_NAME="acaalbums"$GITHUB_USERNAME
+
+cd src 
+dotnet restore
+
+
+az group create \
+  --name $RESOURCE_GROUP \
+  --location "$LOCATION"
+
+
+az acr create \
+  --resource-group $RESOURCE_GROUP \
+  --name $ACR_NAME \
+  --sku Basic \
+  --admin-enabled true
+
+docker build --tag $ACR_NAME.azurecr.io/$API_NAME .
+
+az acr login --name $ACR_NAME
+
+docker push $ACR_NAME.azurecr.io/$API_NAME
+
+az containerapp env create \
+  --name $ENVIRONMENT \
+  --resource-group $RESOURCE_GROUP \
+  --location "$LOCATION"
+
+az containerapp create \
+  --name $API_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --environment $ENVIRONMENT \
+  --image $ACR_NAME.azurecr.io/$API_NAME \
+  --target-port 3500 \
+  --ingress 'external' \
+  --registry-server $ACR_NAME.azurecr.io \
+  --query properties.configuration.ingress.fqdn
+
+
+https://album-api.orangesand-abfc0a50.centralus.azurecontainerapps.io/api/albums
+
+
+az group delete --name $RESOURCE_GROUP -y --no-wait
+
+
